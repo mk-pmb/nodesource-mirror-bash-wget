@@ -1,5 +1,4 @@
-<!-- -*- coding: utf-8, tab-width: 2 -*- -->
-
+﻿
 nodesource-mirror
 =================
 

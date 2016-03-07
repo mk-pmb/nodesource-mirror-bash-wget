@@ -6,6 +6,7 @@ SELFFILE="$(readlink -m "$0")"; SELFPATH="$(dirname "$SELFFILE")"
 function upd_all () {
   local NSM_RAW='https://github.com/nodesource/distributions/raw/master/'
   local DEB_BASEURL='https://deb.nodesource.com/'
+  local HOOKS_DIR=./hooks
 
   local RUN_AS="$(whoami)"
   if [ "$RUN_AS" == root ]; then
@@ -57,8 +58,8 @@ function upd_all () {
   else
     echo 'W: Unable to detect any products.' >&2
   fi
-  [ -x ./products_filter ] && readarray -t PRODS < <(
-    ./products_filter "${PRODS[@]}")
+  [ -x "$HOOKS_DIR"/products_filter ] && readarray -t PRODS < <(
+    "$HOOKS_DIR"/products_filter "${PRODS[@]}")
   local PROD=
   for PROD in "${PRODS[@]}"; do
     [ -n "$PROD" ] || continue
@@ -106,7 +107,21 @@ function mirror_product () {
   local PROD="$1"
   local LOGFN="$PROD/mirror.log"
   sleep 2   # let the launcher finish its output
-  echo "I: $(date +%F_%T) start mirroring $PROD." >"$LOGFN" || return $?
+
+  if [ -x "$HOOKS_DIR"/check-rotate-log ]; then
+    "$HOOKS_DIR"/check-rotate-log "$LOGFN"
+  else
+    [ -f "$LOGFN" ] && rm -- "$LOGFN"
+  fi
+
+  local UTF8_BOM=$'\xEF\xBB\xBF'
+  if [ -s "$LOGFN" ]; then
+    echo >>"$LOGFN"
+  elif [[ "$LANG" =~ \.UTF-?8 ]]; then
+    echo -n "$UTF8_BOM" >>"$LOGFN"
+  fi
+
+  echo "I: $(date +%F_%T) start mirroring $PROD." >>"$LOGFN" || return $?
   dwnl "$DEB_BASEURL$PROD/" --mirror >>"$LOGFN" 2>&1
   local M_RV="$?"
   <<<"I: $(date +%F_%T) finished mirroring $PROD, rv=$M_RV." tee -a "$LOGFN"
