@@ -1,0 +1,23 @@
+{
+  "name": "nodesource-mirror-bash-wget",
+  "version": "0.0.1",
+  "description": "A collection of scripts to help create and maintain mirrors of https://deb.nodesource.com/ on plain dumb webspace.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mk-pmb/nodesource-mirror-bash-wget"
+  },
+  "keywords": [
+    "nodesource",
+    "deb",
+    "mirror"
+  ],
+  "author": "mk-pmb",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mk-pmb/nodesource-mirror-bash-wget/issues"
+  },
+  "homepage": "https://github.com/mk-pmb/nodesource-mirror-bash-wget"
+}
