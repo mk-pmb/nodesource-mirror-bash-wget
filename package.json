@@ -1,6 +1,6 @@
 {
   "name": "nodesource-mirror-bash-wget",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A collection of scripts to help create and maintain mirrors of https://deb.nodesource.com/ on plain dumb webspace.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
