@@ -6,6 +6,7 @@ SELFFILE="$(readlink -m "$0")"; SELFPATH="$(dirname "$SELFFILE")"
 function upd_all () {
   local NSM_RAW='https://github.com/nodesource/distributions/raw/master/'
   local DEB_BASEURL='https://deb.nodesource.com/'
+  local LOGFN_TMPL=logs/%.txt
   local HOOKS_DIR=./hooks
 
   local RUN_AS="$(whoami)"
@@ -105,7 +106,10 @@ function upd_all () {
 
 function mirror_product () {
   local PROD="$1"
-  local LOGFN="$PROD/mirror.log"
+  local LOGFN="${LOGFN_TMPL:-%/mirror.log}"
+  LOGFN="${LOGFN//%/$PROD}"
+  mkdir -p "$(dirname "$LOGFN")"
+
   sleep 2   # let the launcher finish its output
 
   if [ -x "$HOOKS_DIR"/check-rotate-log ]; then
