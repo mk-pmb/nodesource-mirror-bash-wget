@@ -135,6 +135,7 @@ function dwnl () {
   local DL_CMD=(
     wget
     --continue
+    --user-agent "${MIRROR_UAGENT:-nodesource-mirror-bash-wget v0.2}"
     )
   case "$DL_MODE" in
     -O ) ;;
