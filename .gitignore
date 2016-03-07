@@ -1,0 +1,4 @@
+
+/exclude.txt
+/exclude.*.txt
+/[a-z]*_[0-9]*/
