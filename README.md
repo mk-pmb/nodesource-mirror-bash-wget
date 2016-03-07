@@ -18,6 +18,13 @@ wget https://github.com/mk-pmb/nodesource-mirror-bash-wget/raw/master/upd_all.sh
 chmod a+x upd_all.sh
 ```
 
+* Configure (optional):
+```bash
+echo Options +Indexes >>.htaccess
+wget https://github.com/mk-pmb/nodesource-mirror-bash-wget/raw/master/doc/exclude.example.txt
+head exclude.*
+```
+
 * Run:
 ```bash
 ./upd_all.sh &
