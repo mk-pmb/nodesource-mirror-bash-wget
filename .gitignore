@@ -1,4 +1,8 @@
 
-/exclude.txt
-/exclude.*.txt
+/.htaccess
 /[a-z]*_[0-9]*/
+/@*
+/exclude.*.txt
+/exclude.txt
+/logs/
+/upd_all.sh.txt
