@@ -4,25 +4,33 @@ SELFFILE="$(readlink -m "$0")"; SELFPATH="$(dirname "$SELFFILE")"
 
 
 function upd_all_cli_switch () {
+  cd "$SELFPATH" || return $?
+  local RUNMODE="$1"; shift
+
   local NSM_RAW='https://github.com/nodesource/distributions/raw/master/'
   local DEB_BASEURL='https://deb.nodesource.com/'
   local LOGFN_TMPL=logs/%.txt
   local HOOKS_DIR=./hooks
 
-  drop_privileges || return $?
-  cd "$SELFPATH" || return $?
-
-  local RUNMODE="$1"; shift
   case "$RUNMODE" in
-    '' | \
-    -m | --mirror ) mirror_update_products "$@"; return $?;;
+    -C | --autofix-chown ) try_autofix_chown; return $?;;
+  esac
+
+  drop_privileges || return $?
+
+  case "$RUNMODE" in
+    '' ) RUNMODE='--mirror';;
     -b | --forkoff )
       </dev/null setsid "$SELFFILE" "$@" &
       disown $!
       sleep 2   # let early output pass before your shell writes its prompt
       return 0;;
-    -p | --list-products ) lookup_available_products; return $?;;
+  esac
+  case "$RUNMODE" in
     _p ) VER_SEP='_' lookup_available_products; return $?;;
+    -m | --mirror ) mirror_update_products "$@"; return $?;;
+    -p | --list-products ) lookup_available_products; return $?;;
+    -g | --unpriv-git ) git "$@"; return $?;;
   esac
 
   echo "E: unsupported runmode: $RUNMODE" >&2
@@ -82,23 +90,27 @@ function mirror_update_products () {
 }
 
 
-function drop_privileges () {
-  local RUN_AS="$(whoami)"
-  [ "$RUN_AS" == root ] || return 0
-  echo "W: Running as $RUN_AS! Trying to drop privileges:"
-  RUN_AS="$(stat -c %U:%G "$SELFFILE" | tr -s '\n\r\t ' :)"
+function guess_sane_owner_and_group () {
+  local RUN_AS="$(stat -c %U:%G "$SELFFILE" | tr -s '\n\r\t ' :)"
   RUN_AS="${RUN_AS%:}"
   if [ "${RUN_AS%:*}" == root ]; then
     echo "E: chown webuser:webgroup '$SELFFILE'" >&2
     return 4
   fi
-  if <<<"$RUN_AS" grep -qxPe '[a-z][a-z0-9_\-]*:[a-z][a-z0-9_\-]*'; then
-    echo "I: Will try to re-exec with sudo $RUN_AS."
-  else
-    echo "E: Unable to detect appropriate user/group." >&2
-    echo "H: If '$RUN_AS' is a valid user:group, it's too fancy."
-    return 7
-  fi
+  <<<"$RUN_AS" grep -xPe '[a-z][a-z0-9_\-]*:[a-z][a-z0-9_\-]*' && return 0
+  echo "E: Unable to detect appropriate user/group." \
+    "If '$RUN_AS' is a valid user:group, its name is too fancy." >&2
+  return 7
+}
+
+
+function drop_privileges () {
+  local RUN_AS="$(whoami)"
+  [ "$RUN_AS" == root ] || return 0
+  echo "W: Running as $RUN_AS! Trying to drop privileges:"
+  RUN_AS="$(guess_sane_owner_and_group)"
+  [ -n "$RUN_AS" ] || return 4
+  echo "I: Will try to re-exec with sudo $RUN_AS."
   local SUDO_CMD=(
     sudo
     --non-interactive
@@ -110,6 +122,30 @@ function drop_privileges () {
   [ "${DEBUGLEVEL:-0}" -ge 2 ] && echo "D: sudo cmd: ${SUDO_CMD[*]}"
   exec "${SUDO_CMD[@]}"
   return $?
+}
+
+
+function try_autofix_chown () {
+  local CHOWN_CMD=(
+    chown
+    --changes
+    --recursive
+    --no-dereference
+    )
+  [ -f .htaccess ] && "${CHOWN_CMD[@]}" --reference .htaccess -- "$SELFFILE"
+
+  local RUN_AS="$(guess_sane_owner_and_group)"
+  [ -n "$RUN_AS" ] || return 4
+  CHOWN_CMD+=(
+    "$RUN_AS"
+    -- {.,}*[^.]*
+    )
+  echo "I: ${CHOWN_CMD[*]}"
+  local CHOWN_RV=
+  "${CHOWN_CMD[@]}"
+  CHOWN_RV=$?
+  echo "I: chown rv=$CHOWN_RV"
+  return "$CHOWN_RV"
 }
 
 
@@ -200,6 +236,8 @@ function dwnl () {
   "${DL_CMD[@]}" "$DL_MODE" "$@" "$DL_URL"
   return $?
 }
+
+
 
 
 
