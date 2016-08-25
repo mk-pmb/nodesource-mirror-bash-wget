@@ -1,6 +1,15 @@
 # -*- coding: utf-8, tab-width: 2 -*-
 
+# Lines with # are comments and will be ignored.
+# Thus, "versions" with # in front are not seen as versions
+# but just random text. If available and no other exclude
+# config has them listed, they'll be downloaded.
+
+# node_0.10
+node_0.12
 iojs_1.x
 iojs_2.x
-node_0.12
+# iojs_3.x
 node_4.x
+node_5.x
+# node_6.x

@@ -9,62 +9,35 @@ function upd_all () {
   local LOGFN_TMPL=logs/%.txt
   local HOOKS_DIR=./hooks
 
-  local RUN_AS="$(whoami)"
-  if [ "$RUN_AS" == root ]; then
-    echo "W: Running as $RUN_AS! Trying to drop privileges:"
-    RUN_AS="$(stat -c %U:%G "$SELFFILE" | tr -s '\n\r\t ' :)"
-    RUN_AS="${RUN_AS%:}"
-    if [ "${RUN_AS%:*}" == root ]; then
-      echo "E: chown webuser:webgroup '$SELFFILE'" >&2
-      return 4
-    fi
-    if <<<"$RUN_AS" grep -qxPe '[a-z][a-z0-9_\-]*:[a-z][a-z0-9_\-]*'; then
-      echo "I: Will try to re-exec with sudo $RUN_AS."
-    else
-      echo "E: Unable to detect appropriate user/group." >&2
-      echo "H: If '$RUN_AS' is a valid user:group, it's too fancy."
-      return 7
-    fi
-    local SUDO_CMD=(
-      sudo
-      --non-interactive
-      --preserve-env
-      --user "${RUN_AS%:*}" --group "${RUN_AS#*:}"
-      -- "$SELFFILE" "$@"
-      )
-    cd / || return $?   # sudo might be unable to cd $PWD (e.g. fuse.sshfs)
-    [ "${DEBUGLEVEL:-0}" -ge 2 ] && echo "D: sudo cmd: ${SUDO_CMD[*]}"
-    exec "${SUDO_CMD[@]}"
-    return $?
-  fi
-
+  drop_privileges || return $?
   cd "$SELFPATH" || return $?
 
-  local EXCLUDE_PRODS="$(grep -hFe _ -- exclude{,.*}.txt 2>/dev/null)"
-  # ^-- grep: because "cat" would merge lines if a file didn't have a
-  #     final EOL.
+  local RUNMODE="$1"; shift
+  case "$RUNMODE" in
+    '' ) ;;
+    -b | --forkoff )
+      </dev/null setsid "$SELFFILE" "$@" &
+      disown $!
+      sleep 2   # let early output pass before your shell writes its prompt
+      return 0;;
+    -p | --list-products ) lookup_available_products; return $?;;
+    _p ) VER_SEP='_' lookup_available_products; return $?;;
+    * ) echo "E: unsupported runmode: $RUNMODE" >&2;;
+  esac
 
   echo -n 'I: Update products list: '
+  lookup_available_products || return $?
   local PRODS=()
-  local CACHE_BFN="products.cache.$(date +%F).$$"
-  dwnl "$NSM_RAW"deb/src/build.sh -O "$CACHE_BFN".tmp >"$CACHE_BFN".log 2>&1
-  readarray -t PRODS < <(sed -nre '
-    s~^(\S+\(|)\s*"([a-z]+)_([0-9][0-9x.]*):.*$~\2\t\3~p
-    /\)/q
-    ' -- "$CACHE_BFN".tmp | sort --version-sort --unique --key=2 \
-    | tr '\t' '_' | grep -xFve "$EXCLUDE_PRODS")
+  readarray -t PRODS < <(VER_SEP='_' lookup_available_products | grep -vFe '!')
+  [ -n "${PRODS[*]}" ] || return 2$(
+    echo 'E: Unable to detect any products. Check your exclude config.' >&2)
   echo "found ${#PRODS[@]}."
-  if [ -n "${PRODS[*]}" ]; then
-    rm -- "$CACHE_BFN".{tmp,log}
-  else
-    echo 'W: Unable to detect any products.' >&2
-  fi
   [ -x "$HOOKS_DIR"/products_filter ] && readarray -t PRODS < <(
     "$HOOKS_DIR"/products_filter "${PRODS[@]}")
   local PROD=
   for PROD in "${PRODS[@]}"; do
     [ -n "$PROD" ] || continue
-    [ -e "$PROD" ] || mkdir "$PROD"
+    [ -e "$PROD" ] || mkdir -- "$PROD" || return $?
   done
 
   PRODS=()
@@ -93,13 +66,81 @@ function upd_all () {
   done
   echo "-> running. @ $(date +'%F %T')"
   local HINT=
-  case "$SHELL" in
+  tty --silent && case "$SHELL" in
     */bash ) HINT=' (in case you forgot "&": ctrl-z, "bg".)';;
   esac
   echo "I: Wait for them to finish...$HINT"
   wait
   echo "I: Done. @ $(date +'%F %T')"
 
+  return 0
+}
+
+
+function drop_privileges () {
+  local RUN_AS="$(whoami)"
+  [ "$RUN_AS" == root ] || return 0
+  echo "W: Running as $RUN_AS! Trying to drop privileges:"
+  RUN_AS="$(stat -c %U:%G "$SELFFILE" | tr -s '\n\r\t ' :)"
+  RUN_AS="${RUN_AS%:}"
+  if [ "${RUN_AS%:*}" == root ]; then
+    echo "E: chown webuser:webgroup '$SELFFILE'" >&2
+    return 4
+  fi
+  if <<<"$RUN_AS" grep -qxPe '[a-z][a-z0-9_\-]*:[a-z][a-z0-9_\-]*'; then
+    echo "I: Will try to re-exec with sudo $RUN_AS."
+  else
+    echo "E: Unable to detect appropriate user/group." >&2
+    echo "H: If '$RUN_AS' is a valid user:group, it's too fancy."
+    return 7
+  fi
+  local SUDO_CMD=(
+    sudo
+    --non-interactive
+    --preserve-env
+    --user "${RUN_AS%:*}" --group "${RUN_AS#*:}"
+    -- "$SELFFILE" "$@"
+    )
+  cd / || return $?   # sudo might be unable to cd $PWD (e.g. fuse.sshfs)
+  [ "${DEBUGLEVEL:-0}" -ge 2 ] && echo "D: sudo cmd: ${SUDO_CMD[*]}"
+  exec "${SUDO_CMD[@]}"
+  return $?
+}
+
+
+
+function lookup_available_products () {
+  local COL_SEP_FOR_SORT='\t'
+  local PRODS='
+    s~^(\S+\(|)\s*"([a-z]+)_([0-9][0-9x.]*):.*$~\2'"$COL_SEP_FOR_SORT"'\3~p
+    /\)/q'
+  local CACHE_BFN="products.cache.$(date +%F).$$"
+  dwnl "$NSM_RAW"deb/src/build.sh -O "$CACHE_BFN".tmp >"$CACHE_BFN".log 2>&1
+  PRODS="$(sed -nre "$PRODS" -- "$CACHE_BFN".tmp \
+    | sort --version-sort --unique --key=2)"
+  [ -n "$PRODS" ] || return 2
+
+  local EXCLUDE_PRODS="$(grep -hFe _ -- exclude{,.*}.txt 2>/dev/null)"
+  # ^-- grep: because "cat" would merge lines if a file didn't have a
+  #     final EOL.
+  if [ -n "$EXCLUDE_PRODS" ]; then
+    EXCLUDE_PRODS="$(<<<"$EXCLUDE_PRODS" sed -nre '
+      s~\s*(#.*|)$~~
+      /^$/b
+      s~[^A-Za-z0-9_\n]~\\&~g
+      s~^\S+$~s#^&$#!\&#~
+      s~_~'"${COL_SEP_FOR_SORT//\\/\\\\}"'~gp
+      ')"
+    PRODS="$(<<<"$PRODS" sed -re "$EXCLUDE_PRODS")"
+  fi
+  [ -n "$PRODS" ] || return 2
+
+  case "$VER_SEP" in
+    '' | '\t' | $'\t' ) ;;
+    * ) PRODS="${PRODS//$'\t'/$VER_SEP}";;
+  esac
+  echo "$PRODS"
+  rm -- "$CACHE_BFN".{tmp,log}
   return 0
 }
 

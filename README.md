@@ -19,17 +19,35 @@ wget https://github.com/mk-pmb/nodesource-mirror-bash-wget/raw/master/upd_all.sh
 chmod a+x upd_all.sh
 ```
 
-* Configure (optional):
+* (optional) Configure your mirror:
 ```bash
 echo Options +Indexes >>.htaccess
-wget https://github.com/mk-pmb/nodesource-mirror-bash-wget/raw/master/doc/exclude.example.txt
+wget -O exclude.local.txt https://github.com/mk-pmb/nodesource-mirror-bash-wget/raw/master/doc/exclude.example.txt
 head exclude.*
+```
+
+* (optional) Preview what node versions will be downloaded:
+```bash
+./upd_all.sh _p             # see hints below
 ```
 
 * Run:
 ```bash
 ./upd_all.sh &
 ```
+
+
+
+Hints on download preview
+-------------------------
+* The preview may take a while to download the list of available products.
+* Versions with an exclamation mark (`!`)
+  in front of them are excluded by your config.
+* If any version line has a `!` somewhere expect at start of line,
+  something is very broken.
+* Versions without `!` will be downlaoded.
+* Option `_p` is like `-p` === `--list-products` except it uses `_`
+  as the version separator, as will be expected for `exclude` config.
 
 
 
