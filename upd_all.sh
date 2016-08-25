@@ -13,13 +13,13 @@ function upd_all_cli_switch () {
   local HOOKS_DIR=./hooks
 
   case "$RUNMODE" in
+    '' ) RUNMODE='--mirror';;
     -C | --autofix-chown ) try_autofix_chown; return $?;;
   esac
 
-  drop_privileges || return $?
+  drop_privileges "$@" || return $?
 
   case "$RUNMODE" in
-    '' ) RUNMODE='--mirror';;
     -b | --forkoff )
       </dev/null setsid "$SELFFILE" "$@" &
       disown $!
@@ -110,13 +110,13 @@ function drop_privileges () {
   echo "W: Running as $RUN_AS! Trying to drop privileges:"
   RUN_AS="$(guess_sane_owner_and_group)"
   [ -n "$RUN_AS" ] || return 4
-  echo "I: Will try to re-exec with sudo $RUN_AS."
+  echo "I: Will try to re-exec with sudo $RUN_AS, runmode: $RUNMODE, args: $*"
   local SUDO_CMD=(
     sudo
     --non-interactive
     --preserve-env
     --user "${RUN_AS%:*}" --group "${RUN_AS#*:}"
-    -- "$SELFFILE" "$@"
+    -- "$SELFFILE" "$RUNMODE"  "$@"
     )
   cd / || return $?   # sudo might be unable to cd $PWD (e.g. fuse.sshfs)
   [ "${DEBUGLEVEL:-0}" -ge 2 ] && echo "D: sudo cmd: ${SUDO_CMD[*]}"

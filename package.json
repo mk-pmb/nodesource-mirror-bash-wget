@@ -1,14 +1,6 @@
-{
-  "name": "nodesource-mirror-bash-wget",
-  "version": "0.2.7",
+{ "name": "nodesource-mirror-bash-wget",
+  "version": "0.3.0",
   "description": "A collection of scripts to help create and maintain mirrors of https://deb.nodesource.com/ on plain dumb webspace.",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mk-pmb/nodesource-mirror-bash-wget"
-  },
   "keywords": [
     "nodesource",
     "deb",
@@ -16,8 +8,17 @@
   ],
   "author": "mk-pmb",
   "license": "ISC",
+  "homepage": "https://github.com/mk-pmb/nodesource-mirror-bash-wget",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mk-pmb/nodesource-mirror-bash-wget"
+  },
   "bugs": {
     "url": "https://github.com/mk-pmb/nodesource-mirror-bash-wget/issues"
   },
-  "homepage": "https://github.com/mk-pmb/nodesource-mirror-bash-wget"
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+
+  "npm vs. BOM = Unexpected token": "-*- coding: UTF-8 -*-"
 }
