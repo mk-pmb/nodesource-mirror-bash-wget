@@ -3,7 +3,7 @@
 SELFFILE="$(readlink -m "$0")"; SELFPATH="$(dirname "$SELFFILE")"
 
 
-function upd_all () {
+function upd_all_cli_switch () {
   local NSM_RAW='https://github.com/nodesource/distributions/raw/master/'
   local DEB_BASEURL='https://deb.nodesource.com/'
   local LOGFN_TMPL=logs/%.txt
@@ -14,7 +14,8 @@ function upd_all () {
 
   local RUNMODE="$1"; shift
   case "$RUNMODE" in
-    '' ) ;;
+    '' | \
+    -m | --mirror ) mirror_update_products "$@"; return $?;;
     -b | --forkoff )
       </dev/null setsid "$SELFFILE" "$@" &
       disown $!
@@ -22,11 +23,15 @@ function upd_all () {
       return 0;;
     -p | --list-products ) lookup_available_products; return $?;;
     _p ) VER_SEP='_' lookup_available_products; return $?;;
-    * ) echo "E: unsupported runmode: $RUNMODE" >&2;;
   esac
 
+  echo "E: unsupported runmode: $RUNMODE" >&2
+  return 2
+}
+
+
+function mirror_update_products () {
   echo -n 'I: Update products list: '
-  lookup_available_products || return $?
   local PRODS=()
   readarray -t PRODS < <(VER_SEP='_' lookup_available_products | grep -vFe '!')
   [ -n "${PRODS[*]}" ] || return 2$(
@@ -205,4 +210,4 @@ function dwnl () {
 
 
 
-upd_all "$@"; exit $?
+upd_all_cli_switch "$@"; exit $?
